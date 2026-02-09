@@ -1,0 +1,1598 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Missile Dodge</title>
+  <style>
+    :root {
+      --bg-a: #07131f;
+      --bg-b: #0f2336;
+      --panel: rgba(8, 16, 28, 0.75);
+      --text: #d8f4ff;
+      --accent: #7ef0ff;
+      --danger: #ff735a;
+      --good: #6ff2a8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 800px at 20% -10%, #163b56 0%, transparent 55%),
+        radial-gradient(900px 700px at 90% 110%, #14364f 0%, transparent 60%),
+        linear-gradient(160deg, var(--bg-a), var(--bg-b));
+    }
+
+    #game-canvas {
+      display: block;
+      transition: opacity 220ms ease, filter 220ms ease;
+    }
+
+    #hud {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid rgba(126, 240, 255, 0.25);
+      border-radius: 12px;
+      padding: 10px 12px;
+      backdrop-filter: blur(4px);
+      user-select: none;
+      z-index: 6;
+      transition: opacity 180ms ease;
+    }
+
+    .chip {
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(126, 240, 255, 0.2);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    #help {
+      position: fixed;
+      right: 14px;
+      top: 14px;
+      background: var(--panel);
+      border: 1px solid rgba(126, 240, 255, 0.2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      max-width: 320px;
+      font-size: 14px;
+      line-height: 1.4;
+      backdrop-filter: blur(4px);
+      user-select: none;
+      z-index: 6;
+      transition: opacity 180ms ease;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(3, 8, 14, 0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 240ms ease;
+      z-index: 12;
+    }
+
+    #overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .card {
+      background: rgba(6, 13, 22, 0.92);
+      border: 1px solid rgba(255, 115, 90, 0.45);
+      border-radius: 14px;
+      padding: 22px 26px;
+      width: min(92vw, 420px);
+      text-align: center;
+      box-shadow: 0 30px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    .card h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: #fff;
+    }
+
+    .card p {
+      margin: 8px 0;
+      color: #ccdae7;
+    }
+
+    .card button {
+      margin-top: 12px;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(160deg, #78e8ff, #44b5e0);
+      color: #07202c;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .ok { color: var(--good); }
+    .bad { color: var(--danger); }
+
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 18;
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(42, 100, 143, 0.25) 0%, transparent 58%),
+        radial-gradient(1200px 700px at 90% 95%, rgba(30, 83, 120, 0.32) 0%, transparent 55%),
+        rgba(5, 12, 20, 0.72);
+      backdrop-filter: blur(3px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+
+    #intro.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .intro-grid {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 24px;
+      align-items: stretch;
+      padding: 36px;
+    }
+
+    .intro-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      max-width: 460px;
+      padding: 10px 24px;
+    }
+
+    .intro-left h1 {
+      margin: 0;
+      font-size: clamp(46px, 8.4vw, 96px);
+      line-height: 0.95;
+      letter-spacing: 0.04em;
+      color: #f1fbff;
+      text-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .intro-left p {
+      margin: 20px 0 0;
+      font-size: clamp(15px, 2vw, 19px);
+      line-height: 1.45;
+      color: #cae8f6;
+      max-width: 36ch;
+    }
+
+    .intro-left button {
+      margin-top: 26px;
+      border: none;
+      border-radius: 11px;
+      padding: 12px 18px;
+      background: linear-gradient(160deg, #81ebff, #4fb8e6);
+      color: #07202c;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .intro-right {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-width: 280px;
+      position: relative;
+    }
+
+    #ship-preview {
+      width: min(56vw, 620px);
+      height: min(70vh, 500px);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+      touch-action: none;
+    }
+
+    .intro-note {
+      margin: 10px 0 0;
+      color: #a3cbdf;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      width: 100%;
+      text-align: center;
+    }
+
+    body.intro-active #hud,
+    body.intro-active #help {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    body.intro-active #game-canvas {
+      opacity: 0.08;
+      filter: blur(1.4px);
+    }
+
+    #intro.launching .intro-left {
+      opacity: 0;
+      transform: translateX(-24px);
+      transition: opacity 260ms ease, transform 380ms ease;
+    }
+
+    #intro.launching .intro-note {
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    #intro.launching .intro-right {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #intro.launching #ship-preview {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    @media (max-width: 940px) {
+      .intro-grid {
+        grid-template-columns: 1fr;
+        padding: 22px;
+      }
+
+      .intro-left {
+        align-items: center;
+        text-align: center;
+        max-width: none;
+      }
+
+      #ship-preview {
+        width: min(90vw, 520px);
+        height: min(50vh, 360px);
+      }
+    }
+  </style>
+</head>
+<body class="intro-active">
+  <div id="intro" class="show">
+    <div class="intro-grid">
+      <section class="intro-left">
+        <h1>MISSILE DODGE</h1>
+        <p>Turn hard, bait homing missiles, and survive long enough to reach the nightmare waves.</p>
+        <button id="start-game">Launch Run</button>
+      </section>
+      <section class="intro-right">
+        <div id="ship-preview"></div>
+        <p class="intro-note">Drag to rotate ship</p>
+      </section>
+    </div>
+  </div>
+  <div id="hud">
+    <span class="chip">Time: <span id="time">0.0</span>s</span>
+    <span class="chip">Missiles: <span id="alive">0</span></span>
+    <span class="chip">Destroyed: <span id="destroyed">0</span></span>
+    <span class="chip">Gun: <span id="gun">OFF</span></span>
+    <span class="chip">Shield: <span id="shield">OFF</span></span>
+    <span class="chip">Boost: <span id="boost">OFF</span></span>
+    <span class="chip">Stasis: <span id="stasis">OFF</span></span>
+  </div>
+  <div id="help">
+    <strong>Missile Dodge</strong><br>
+    Turn and thrust to bait missiles into each other.<br>
+    <span class="ok">Missiles:</span> Blue (basic), then Orange (fast), Green (tight curves), Purple (proximity blast + warning ring).<br>
+    <span class="ok">Controls:</span> A/D or ←/→ turn, W or ↑ thrust, Shift boost.<br>
+    <span class="ok">Pickups:</span> Blue = auto-gun, Green = shield, Orange = boost, Violet = missile stasis.<br>
+    <span class="bad">Danger:</span> Crossing the world edge destroys your ship.
+  </div>
+  <div id="overlay">
+    <div class="card">
+      <h1>Ship Destroyed</h1>
+      <p>Survived: <strong id="final-time">0.0s</strong></p>
+      <p>Missiles destroyed: <strong id="final-destroyed">0</strong></p>
+      <button id="restart">Play Again</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+
+    const WORLD_HALF = 150;
+    const MAX_MISSILES = 10;
+    const SPAWN_INTERVAL = 2.2;
+    const TURN_SPEED = 3.1;
+    const THRUST = 42;
+    const BOOST = 1.6;
+    const DRAG = 0.992;
+    const MAX_SPEED = 52;
+    const BULLET_SPEED = 96;
+    const BULLET_LIFE = 1.4;
+    const GUN_DURATION = 8.5;
+    const SHIELD_DURATION = 9.5;
+    const BOOST_DURATION = 8;
+    const STASIS_DURATION = 7.5;
+    const POWERUP_RADIUS = 3.7;
+    const POWERUP_MIN_DELAY = 8;
+    const POWERUP_MAX_DELAY = 14;
+    const FIRE_INTERVAL = 0.13;
+    const POWERUP_TYPES = ['gun', 'shield', 'boost', 'stasis'];
+    const PROX_TRIGGER_RADIUS = 8.5;
+    const PROX_WARNING_RADIUS = 13.5;
+    const PROX_PRIME_TIME = 0.95;
+    const SHIELD_BASE_SCALE = 1.18;
+    const MISSILE_PHASES = [
+      { time: 0, pool: [{ type: 'standard', weight: 1 }] },
+      { time: 18, pool: [{ type: 'standard', weight: 0.72 }, { type: 'interceptor', weight: 0.28 }] },
+      { time: 40, pool: [{ type: 'standard', weight: 0.46 }, { type: 'interceptor', weight: 0.34 }, { type: 'serpentine', weight: 0.2 }] },
+      { time: 70, pool: [{ type: 'standard', weight: 0.28 }, { type: 'interceptor', weight: 0.3 }, { type: 'serpentine', weight: 0.24 }, { type: 'proximity', weight: 0.18 }] },
+      { time: 105, pool: [{ type: 'standard', weight: 0.16 }, { type: 'interceptor', weight: 0.3 }, { type: 'serpentine', weight: 0.26 }, { type: 'proximity', weight: 0.28 }] }
+    ];
+
+    const keys = new Set();
+    const missiles = [];
+    const explosions = [];
+    const powerups = [];
+    const bullets = [];
+    const shipHitSamples = [];
+    let lastSpawn = 0;
+    let elapsed = 0;
+    let destroyed = 0;
+    let running = false;
+    let powerupTimer = 0;
+    let gunTimer = 0;
+    let shieldTimer = 0;
+    let boostTimer = 0;
+    let stasisTimer = 0;
+    let fireCooldown = 0;
+
+    const timeEl = document.getElementById('time');
+    const aliveEl = document.getElementById('alive');
+    const destroyedEl = document.getElementById('destroyed');
+    const gunEl = document.getElementById('gun');
+    const shieldEl = document.getElementById('shield');
+    const boostEl = document.getElementById('boost');
+    const stasisEl = document.getElementById('stasis');
+    const overlay = document.getElementById('overlay');
+    const finalTime = document.getElementById('final-time');
+    const finalDestroyed = document.getElementById('final-destroyed');
+    const restartButton = document.getElementById('restart');
+    const intro = document.getElementById('intro');
+    const startGameButton = document.getElementById('start-game');
+    const shipPreviewHost = document.getElementById('ship-preview');
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.id = 'game-canvas';
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x0a1728, 130, 380);
+
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500);
+    camera.position.set(0, 118, 128);
+    camera.lookAt(0, 0, 0);
+
+    const ambient = new THREE.HemisphereLight(0x87c8ff, 0x14263d, 0.9);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(50, 100, 30);
+    scene.add(dir);
+
+    const grid = new THREE.GridHelper(WORLD_HALF * 2, 60, 0x3a6f95, 0x17324a);
+    grid.position.y = -0.1;
+    grid.material.opacity = 0.55;
+    grid.material.transparent = true;
+    scene.add(grid);
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(WORLD_HALF - 0.8, WORLD_HALF, 120),
+      new THREE.MeshBasicMaterial({ color: 0x2f6a93, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.01;
+    scene.add(ring);
+
+    const voxelGeometry = new THREE.BoxGeometry(0.82, 0.82, 0.82);
+    const matShipRed = new THREE.MeshStandardMaterial({ color: 0xc93a41, metalness: 0.35, roughness: 0.35 });
+    const matShipWhite = new THREE.MeshStandardMaterial({ color: 0xe6edf7, metalness: 0.3, roughness: 0.25 });
+    const matShipDark = new THREE.MeshStandardMaterial({ color: 0x202631, metalness: 0.45, roughness: 0.45 });
+    const matCanopy = new THREE.MeshStandardMaterial({
+      color: 0x7aefff,
+      emissive: 0x2db9d6,
+      emissiveIntensity: 0.55,
+      transparent: true,
+      opacity: 0.95,
+      metalness: 0.12,
+      roughness: 0.08
+    });
+    const matMissileStdMain = new THREE.MeshStandardMaterial({ color: 0x49d6ff, metalness: 0.28, roughness: 0.3 });
+    const matMissileStdAlt = new THREE.MeshStandardMaterial({ color: 0xe9f6ff, metalness: 0.22, roughness: 0.28 });
+    const matMissileIntMain = new THREE.MeshStandardMaterial({ color: 0xffaa45, metalness: 0.36, roughness: 0.26 });
+    const matMissileIntAlt = new THREE.MeshStandardMaterial({ color: 0xffe4b8, metalness: 0.28, roughness: 0.24 });
+    const matMissileProxMain = new THREE.MeshStandardMaterial({ color: 0xc66dff, metalness: 0.3, roughness: 0.32 });
+    const matMissileProxAlt = new THREE.MeshStandardMaterial({ color: 0x2b1d3d, metalness: 0.45, roughness: 0.48 });
+    const matMissileSerpMain = new THREE.MeshStandardMaterial({ color: 0x7dff71, metalness: 0.24, roughness: 0.34 });
+    const matMissileSerpAlt = new THREE.MeshStandardMaterial({ color: 0x183a2a, metalness: 0.42, roughness: 0.46 });
+    const matPowerGun = new THREE.MeshStandardMaterial({ color: 0x67ccff, emissive: 0x10456a, emissiveIntensity: 0.55, metalness: 0.15, roughness: 0.3 });
+    const matPowerShield = new THREE.MeshStandardMaterial({ color: 0x7cffba, emissive: 0x124a2f, emissiveIntensity: 0.55, metalness: 0.15, roughness: 0.3 });
+    const matPowerBoost = new THREE.MeshStandardMaterial({ color: 0xffba57, emissive: 0x5a2d0d, emissiveIntensity: 0.55, metalness: 0.2, roughness: 0.28 });
+    const matPowerStasis = new THREE.MeshStandardMaterial({ color: 0xcd88ff, emissive: 0x3a185b, emissiveIntensity: 0.55, metalness: 0.18, roughness: 0.3 });
+
+    function addVoxel(parent, x, y, z, material, sx = 1, sy = 1, sz = 1) {
+      const cube = new THREE.Mesh(voxelGeometry, material);
+      cube.position.set(x * 0.84, y * 0.84, z * 0.84);
+      cube.scale.set(sx, sy, sz);
+      parent.add(cube);
+      return cube;
+    }
+
+    const ship = new THREE.Group();
+    for (let z = -6; z <= 6; z += 1) {
+      const t = (z + 6) / 12;
+      const half = Math.max(1, Math.round(5 - t * 4));
+      const isFront = z >= 2;
+      for (let x = -half; x <= half; x += 1) {
+        const edge = Math.abs(x) === half;
+        const topMaterial = edge && z < 2 ? matShipWhite : matShipRed;
+        const lowerMaterial = edge || (!isFront && (x + z) % 3 === 0) ? matShipWhite : matShipRed;
+        addVoxel(ship, x, 0, z, lowerMaterial);
+        addVoxel(ship, x, 1, z, topMaterial);
+      }
+      if (z <= 1) {
+        addVoxel(ship, -half - 1, 0, z, z % 2 === 0 ? matShipWhite : matShipRed);
+        addVoxel(ship, half + 1, 0, z, z % 2 === 0 ? matShipWhite : matShipRed);
+      }
+    }
+
+    for (let z = 1; z <= 3; z += 1) {
+      addVoxel(ship, 0, 2, z, matShipDark);
+      addVoxel(ship, -1, 2, z, matShipDark);
+      addVoxel(ship, 1, 2, z, matShipDark);
+    }
+    addVoxel(ship, 0, 2, 4, matCanopy);
+    addVoxel(ship, 0, 2, 5, matCanopy, 0.8, 0.8, 0.8);
+
+    for (const side of [-1, 1]) {
+      for (let z = 4; z <= 8; z += 1) {
+        const color = z % 2 === 0 ? matShipWhite : matShipRed;
+        addVoxel(ship, side * 2, 1, z, color);
+      }
+      addVoxel(ship, side * 3, 1, 7, matShipWhite);
+      addVoxel(ship, side * 3, 1, 8, matShipDark);
+    }
+
+    addVoxel(ship, 0, 2, -5, matShipWhite, 1.2, 0.7, 0.9);
+    addVoxel(ship, 0, 2, -4, matShipWhite, 1.4, 0.7, 0.9);
+    addVoxel(ship, 0, 2, -3, matShipRed, 1.4, 0.7, 0.9);
+
+    const shipThruster = new THREE.Mesh(
+      new THREE.ConeGeometry(0.7, 3.2, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x63e8ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+    );
+    shipThruster.rotation.x = -Math.PI / 2;
+    shipThruster.position.set(0, 1.15, -6.6);
+    ship.add(shipThruster);
+
+    const shipShieldBubble = new THREE.Group();
+    const shieldFill = new THREE.Mesh(
+      new THREE.SphereGeometry(6.3, 24, 18),
+      new THREE.MeshBasicMaterial({
+        color: 0x71f8ff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide
+      })
+    );
+    const shieldWire = new THREE.Mesh(
+      new THREE.SphereGeometry(6.48, 20, 16),
+      new THREE.MeshBasicMaterial({
+        color: 0x9dfbff,
+        transparent: true,
+        opacity: 0,
+        wireframe: true
+      })
+    );
+    shipShieldBubble.add(shieldFill);
+    shipShieldBubble.add(shieldWire);
+    shipShieldBubble.position.set(0, 1.05, 0);
+    shipShieldBubble.scale.set(SHIELD_BASE_SCALE, SHIELD_BASE_SCALE, SHIELD_BASE_SCALE);
+    ship.add(shipShieldBubble);
+    ship.scale.setScalar(0.8);
+    ship.traverse((obj) => {
+      if (!obj.isMesh || obj.geometry !== voxelGeometry) return;
+      shipHitSamples.push({
+        x: obj.position.x,
+        z: obj.position.z,
+        r: 0.43 * Math.max(obj.scale.x, obj.scale.z)
+      });
+    });
+    scene.add(ship);
+
+    const shipState = {
+      pos: new THREE.Vector2(),
+      vel: new THREE.Vector2(),
+      angle: 0
+    };
+
+    const previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    previewRenderer.setClearColor(0x000000, 0);
+    shipPreviewHost.appendChild(previewRenderer.domElement);
+
+    const previewScene = new THREE.Scene();
+    const previewCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 220);
+    previewCamera.position.set(0, 6.8, 26);
+    previewCamera.lookAt(0, 1.2, 0);
+
+    const previewAmbient = new THREE.HemisphereLight(0xc6e8ff, 0x1a2c40, 0.9);
+    previewScene.add(previewAmbient);
+    const previewKey = new THREE.DirectionalLight(0xffffff, 1);
+    previewKey.position.set(16, 24, 14);
+    previewScene.add(previewKey);
+    const previewFill = new THREE.DirectionalLight(0x84bfe8, 0.45);
+    previewFill.position.set(-14, 8, -12);
+    previewScene.add(previewFill);
+
+    let previewShowcaseX = -9.6;
+    let previewShowcaseY = 6.4;
+    let previewShowcaseScale = 0.9;
+    let previewShowcaseCamY = 7.8;
+    let previewShowcaseCamZ = 33;
+    const PREVIEW_LAUNCH_DURATION = 1.5;
+
+    const previewShip = ship.clone(true);
+    previewShip.position.set(0, 0, 0);
+    previewShip.scale.setScalar(1);
+    previewScene.add(previewShip);
+    previewShip.updateMatrixWorld(true);
+    const previewBounds = new THREE.Box3().setFromObject(previewShip);
+    const previewCenter = previewBounds.getCenter(new THREE.Vector3());
+    previewShip.position.sub(previewCenter);
+    previewShip.updateMatrixWorld(true);
+    const previewBaseRadius = previewBounds
+      .getBoundingSphere(new THREE.Sphere())
+      .radius;
+    previewShip.scale.setScalar(previewShowcaseScale);
+
+    let previewPitch = 0.24;
+    let previewYaw = -0.62;
+    let previewDragging = false;
+    let previewLastX = 0;
+    let previewLastY = 0;
+    let previewLaunching = false;
+    let previewLaunchTimer = 0;
+
+    function updatePreviewShowcaseValues() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const short = Math.min(w, h);
+      const mobile = w <= 940;
+      const factor = THREE.MathUtils.clamp(short / 980, 0.68, 1.0);
+      previewShowcaseScale = (mobile ? 0.72 : 0.84) * factor;
+      previewShowcaseX = mobile ? -7.8 : -9.6;
+      previewShowcaseY = mobile ? 5.8 : 6.4;
+      const fov = THREE.MathUtils.degToRad(previewCamera.fov);
+      const aspect = Math.max(0.6, previewCamera.aspect);
+      const hFov = 2 * Math.atan(Math.tan(fov * 0.5) * aspect);
+      const fitFov = Math.min(fov, hFov);
+      const dist = (previewBaseRadius * previewShowcaseScale) / Math.sin(fitFov * 0.5);
+      previewShowcaseCamY = mobile ? 7.8 : 7.2;
+      previewShowcaseCamZ = dist * 1.4;
+    }
+
+    function applyPreviewShowcasePose() {
+      previewShip.position.set(previewShowcaseX, previewShowcaseY, 0);
+      previewShip.scale.setScalar(previewShowcaseScale);
+      previewCamera.position.set(0, previewShowcaseCamY, previewShowcaseCamZ);
+      previewCamera.lookAt(0, 1.2, 0);
+    }
+
+    function resizePreview() {
+      const width = Math.max(1, shipPreviewHost.clientWidth);
+      const height = Math.max(1, shipPreviewHost.clientHeight);
+      previewRenderer.setSize(width, height, false);
+      previewCamera.aspect = width / height;
+      previewCamera.updateProjectionMatrix();
+      updatePreviewShowcaseValues();
+      if (!previewLaunching && !previewDragging) applyPreviewShowcasePose();
+    }
+
+    const previewCanvas = previewRenderer.domElement;
+    previewCanvas.addEventListener('pointerdown', (e) => {
+      if (previewLaunching) return;
+      previewDragging = true;
+      previewLastX = e.clientX;
+      previewLastY = e.clientY;
+      previewCanvas.setPointerCapture(e.pointerId);
+    });
+    previewCanvas.addEventListener('pointermove', (e) => {
+      if (!previewDragging) return;
+      const dx = e.clientX - previewLastX;
+      const dy = e.clientY - previewLastY;
+      previewLastX = e.clientX;
+      previewLastY = e.clientY;
+      previewYaw += dx * 0.012;
+      previewPitch = THREE.MathUtils.clamp(previewPitch + dy * 0.008, -0.8, 0.85);
+    });
+    previewCanvas.addEventListener('pointerup', (e) => {
+      previewDragging = false;
+      if (previewCanvas.hasPointerCapture(e.pointerId)) previewCanvas.releasePointerCapture(e.pointerId);
+    });
+    previewCanvas.addEventListener('pointercancel', (e) => {
+      previewDragging = false;
+      if (previewCanvas.hasPointerCapture(e.pointerId)) previewCanvas.releasePointerCapture(e.pointerId);
+    });
+    resizePreview();
+
+    function activeMissilePool() {
+      let pool = MISSILE_PHASES[0].pool;
+      for (const phase of MISSILE_PHASES) {
+        if (elapsed >= phase.time) pool = phase.pool;
+      }
+      return pool;
+    }
+
+    function rollMissileType() {
+      const pool = activeMissilePool();
+      const total = pool.reduce((sum, e) => sum + e.weight, 0);
+      let pick = Math.random() * total;
+      for (const entry of pool) {
+        pick -= entry.weight;
+        if (pick <= 0) return entry.type;
+      }
+      return pool[0].type;
+    }
+
+    function buildStandardMissile(g) {
+      for (let z = -2; z <= 2; z += 1) {
+        addVoxel(g, 0, 0, z, z % 2 === 0 ? matMissileStdAlt : matMissileStdMain, 0.92, 0.92, 1);
+      }
+      addVoxel(g, 0, 0, 3, matMissileStdAlt, 0.72, 0.72, 0.7);
+      addVoxel(g, 0, 0, -3, matMissileStdMain, 0.86, 0.86, 0.86);
+      addVoxel(g, -1, 0, -1, matMissileStdMain, 0.68, 0.2, 1.2);
+      addVoxel(g, 1, 0, -1, matMissileStdMain, 0.68, 0.2, 1.2);
+      return {
+        speed: 18 + Math.random() * 10,
+        turn: 0.9 + Math.random() * 0.45,
+        radius: 1.7,
+        glow: 0xa1edff,
+        glowSize: 0.26,
+        trail: 0x66f0ff,
+        trailWidth: 0.28,
+        trailLength: 1.7,
+        trailOffset: -3.9,
+        trailBase: 0.24,
+        trailFlicker: 0.07,
+        trailScaleBase: 0.9,
+        trailScaleAmp: 0.1,
+        pulseRate: 15,
+        marker: 0x74e9ff,
+        lead: 0.08,
+        weaveAmplitude: 0,
+        weaveRate: 0
+      };
+    }
+
+    function buildInterceptorMissile(g) {
+      for (let z = -4; z <= 4; z += 1) {
+        const mat = z % 2 === 0 ? matMissileIntMain : matMissileIntAlt;
+        addVoxel(g, 0, 0, z, mat, 0.7, 0.7, 1);
+      }
+      addVoxel(g, 0, 0, 5, matMissileIntAlt, 0.54, 0.54, 0.58);
+      addVoxel(g, -1, 0, 0, matMissileIntMain, 0.45, 0.16, 1.4);
+      addVoxel(g, 1, 0, 0, matMissileIntMain, 0.45, 0.16, 1.4);
+      addVoxel(g, 0, 1, 1, matMissileIntAlt, 0.42, 0.42, 0.9);
+      return {
+        speed: 34 + Math.random() * 12,
+        turn: 1.25 + Math.random() * 0.45,
+        radius: 1.4,
+        glow: 0xffc278,
+        glowSize: 0.24,
+        trail: 0xff9d47,
+        trailWidth: 0.23,
+        trailLength: 2.45,
+        trailOffset: -4.85,
+        trailBase: 0.34,
+        trailFlicker: 0.13,
+        trailScaleBase: 1.03,
+        trailScaleAmp: 0.2,
+        pulseRate: 24,
+        marker: 0xff9a2f,
+        lead: 0.55,
+        weaveAmplitude: 0,
+        weaveRate: 0,
+        dualTrail: true,
+        dualTrailColor: 0xffe0a8
+      };
+    }
+
+    function buildProximityMissile(g) {
+      for (let x = -1; x <= 1; x += 1) {
+        for (let z = -1; z <= 1; z += 1) {
+          const edge = Math.abs(x) + Math.abs(z) > 1;
+          addVoxel(g, x, 0, z, edge ? matMissileProxAlt : matMissileProxMain, 0.92, 0.92, 0.92);
+        }
+      }
+      addVoxel(g, 0, 1, 0, matMissileProxMain, 0.76, 0.76, 0.76);
+      addVoxel(g, 0, -1, 0, matMissileProxAlt, 0.56, 0.56, 0.56);
+      addVoxel(g, 0, 0, 2, matMissileProxMain, 0.62, 0.62, 0.62);
+      addVoxel(g, 0, 0, -2, matMissileProxMain, 0.62, 0.62, 0.62);
+      addVoxel(g, 2, 0, 0, matMissileProxMain, 0.45, 0.45, 0.45);
+      addVoxel(g, -2, 0, 0, matMissileProxMain, 0.45, 0.45, 0.45);
+      return {
+        speed: 12 + Math.random() * 6,
+        turn: 0.95 + Math.random() * 0.3,
+        radius: 2.25,
+        glow: 0xe5a8ff,
+        glowSize: 0.34,
+        trail: 0xc162ff,
+        trailWidth: 0.36,
+        trailLength: 1.35,
+        trailOffset: -3.45,
+        trailBase: 0.19,
+        trailFlicker: 0.06,
+        trailScaleBase: 0.82,
+        trailScaleAmp: 0.08,
+        pulseRate: 10,
+        marker: 0xf67bff,
+        lead: 0.2,
+        weaveAmplitude: 0,
+        weaveRate: 0,
+        hasWarningRing: true
+      };
+    }
+
+    function buildSerpentineMissile(g) {
+      for (let z = -4; z <= 4; z += 1) {
+        const x = z % 2 === 0 ? 0 : (z > 0 ? 1 : -1);
+        addVoxel(g, x, 0, z, z % 2 === 0 ? matMissileSerpMain : matMissileSerpAlt, 0.82, 0.82, 0.96);
+      }
+      addVoxel(g, 0, 1, 0, matMissileSerpMain, 0.52, 0.52, 0.84);
+      addVoxel(g, 1, 0, 5, matMissileSerpMain, 0.56, 0.56, 0.6);
+      addVoxel(g, -1, 0, -5, matMissileSerpMain, 0.56, 0.56, 0.6);
+      return {
+        speed: 18 + Math.random() * 8,
+        turn: 2.1 + Math.random() * 0.8,
+        radius: 1.58,
+        glow: 0xa7ff8c,
+        glowSize: 0.3,
+        trail: 0x6cff88,
+        trailWidth: 0.26,
+        trailLength: 2.1,
+        trailOffset: -4.25,
+        trailBase: 0.23,
+        trailFlicker: 0.1,
+        trailScaleBase: 0.9,
+        trailScaleAmp: 0.23,
+        pulseRate: 17,
+        marker: 0x8bff4e,
+        lead: 0.2,
+        weaveAmplitude: 0.72,
+        weaveRate: 7.8
+      };
+    }
+
+    function createMissile(position, type = rollMissileType()) {
+      const g = new THREE.Group();
+      let config = buildStandardMissile(g);
+      if (type === 'interceptor') config = buildInterceptorMissile(g);
+      if (type === 'proximity') config = buildProximityMissile(g);
+      if (type === 'serpentine') config = buildSerpentineMissile(g);
+
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(config.glowSize, 12, 12),
+        new THREE.MeshBasicMaterial({ color: config.glow })
+      );
+      glow.position.set(0, 0, -3.05);
+      g.add(glow);
+
+      const marker = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.68, 10),
+        new THREE.MeshBasicMaterial({ color: config.marker })
+      );
+      marker.position.set(0, 0.62, 0.2);
+      g.add(marker);
+
+      const trail = new THREE.Mesh(
+        new THREE.ConeGeometry(config.trailWidth, config.trailLength, 10, 1, true),
+        new THREE.MeshBasicMaterial({ color: config.trail, transparent: true, opacity: 0.34, side: THREE.DoubleSide })
+      );
+      trail.rotation.x = -Math.PI / 2;
+      trail.position.set(0, 0, config.trailOffset);
+      g.add(trail);
+
+      let trail2 = null;
+      if (config.dualTrail) {
+        trail2 = new THREE.Mesh(
+          new THREE.ConeGeometry(config.trailWidth * 0.66, config.trailLength * 0.82, 10, 1, true),
+          new THREE.MeshBasicMaterial({ color: config.dualTrailColor, transparent: true, opacity: 0.26, side: THREE.DoubleSide })
+        );
+        trail2.rotation.x = -Math.PI / 2;
+        trail2.position.set(0, -0.15, config.trailOffset + 0.55);
+        g.add(trail2);
+      }
+
+      let warningRing = null;
+      if (config.hasWarningRing) {
+        warningRing = new THREE.Mesh(
+          new THREE.RingGeometry(PROX_TRIGGER_RADIUS - 0.45, PROX_TRIGGER_RADIUS, 64),
+          new THREE.MeshBasicMaterial({ color: 0xee9bff, transparent: true, opacity: 0, side: THREE.DoubleSide })
+        );
+        warningRing.rotation.x = -Math.PI / 2;
+        warningRing.position.y = -1.14;
+        g.add(warningRing);
+      }
+
+      g.position.set(position.x, 1.2, position.y);
+      scene.add(g);
+
+      return {
+        mesh: g,
+        type,
+        pos: position.clone(),
+        prev: position.clone(),
+        vel: new THREE.Vector2(),
+        speed: config.speed,
+        turn: config.turn,
+        radius: config.radius,
+        lead: config.lead,
+        weaveAmplitude: config.weaveAmplitude,
+        weaveRate: config.weaveRate,
+        trailBase: config.trailBase,
+        trailFlicker: config.trailFlicker,
+        trailScaleBase: config.trailScaleBase,
+        trailScaleAmp: config.trailScaleAmp,
+        pulseRate: config.pulseRate,
+        glow,
+        marker,
+        trail,
+        trail2,
+        warningRing,
+        primeTimer: PROX_PRIME_TIME,
+        pulse: Math.random() * Math.PI * 2,
+        roll: (Math.random() * 2 - 1) * (type === 'serpentine' ? 1.1 : type === 'interceptor' ? 0.22 : 0.55),
+        weave: Math.random() * Math.PI * 2,
+        life: 0
+      };
+    }
+
+    function addExplosion(point, size = 1) {
+      const count = 10 + Math.floor(Math.random() * 10);
+      for (let i = 0; i < count; i += 1) {
+        const m = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18 + Math.random() * 0.32, 8, 8),
+          new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffd26d : 0xff6e54 })
+        );
+        m.position.set(point.x, 1 + Math.random() * 2.8, point.y);
+        scene.add(m);
+
+        const d = new THREE.Vector3(
+          (Math.random() - 0.5) * 24 * size,
+          8 + Math.random() * 14 * size,
+          (Math.random() - 0.5) * 24 * size
+        );
+        explosions.push({ mesh: m, vel: d, life: 0.8 + Math.random() * 0.45 });
+      }
+    }
+
+    function removeMissile(i) {
+      scene.remove(missiles[i].mesh);
+      missiles.splice(i, 1);
+    }
+
+    function removePowerup(i) {
+      scene.remove(powerups[i].mesh);
+      powerups.splice(i, 1);
+    }
+
+    function removeBullet(i) {
+      scene.remove(bullets[i].mesh);
+      bullets.splice(i, 1);
+    }
+
+    function randomPowerupDelay() {
+      return POWERUP_MIN_DELAY + Math.random() * (POWERUP_MAX_DELAY - POWERUP_MIN_DELAY);
+    }
+
+    function createPowerup(type, position) {
+      const g = new THREE.Group();
+      const style = {
+        gun: { material: matPowerGun, halo: 0x8de0ff, icon: 0xcef3ff },
+        shield: { material: matPowerShield, halo: 0x9fffc7, icon: 0xdfffe9 },
+        boost: { material: matPowerBoost, halo: 0xffd190, icon: 0xffefcf },
+        stasis: { material: matPowerStasis, halo: 0xe2b1ff, icon: 0xf4e0ff }
+      }[type];
+
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), style.material);
+      g.add(core);
+
+      const halo = new THREE.Mesh(
+        new THREE.TorusGeometry(1.3, 0.14, 12, 20),
+        new THREE.MeshBasicMaterial({
+          color: style.halo,
+          transparent: true,
+          opacity: 0.6
+        })
+      );
+      halo.rotation.x = Math.PI / 2;
+      g.add(halo);
+
+      let icon;
+      if (type === 'boost') {
+        icon = new THREE.Mesh(
+          new THREE.ConeGeometry(0.24, 0.7, 6),
+          new THREE.MeshBasicMaterial({ color: style.icon })
+        );
+        icon.rotation.z = Math.PI;
+      } else if (type === 'stasis') {
+        icon = new THREE.Mesh(
+          new THREE.BoxGeometry(0.42, 0.42, 0.42),
+          new THREE.MeshBasicMaterial({ color: style.icon })
+        );
+      } else if (type === 'shield') {
+        icon = new THREE.Mesh(
+          new THREE.SphereGeometry(0.24, 10, 8),
+          new THREE.MeshBasicMaterial({ color: style.icon })
+        );
+      } else {
+        icon = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.11, 0.58, 8),
+          new THREE.MeshBasicMaterial({ color: style.icon })
+        );
+      }
+      icon.position.y = 0.05;
+      g.add(icon);
+
+      g.position.set(position.x, 2.0, position.y);
+      scene.add(g);
+      return {
+        type,
+        mesh: g,
+        pos: position.clone(),
+        spin: Math.random() * Math.PI * 2,
+        halo,
+        icon
+      };
+    }
+
+    function spawnPowerup() {
+      if (powerups.length >= 2) return;
+      const spawnRadius = WORLD_HALF - 14;
+      const pos = new THREE.Vector2();
+      let tries = 0;
+      do {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.sqrt(Math.random()) * spawnRadius;
+        pos.set(Math.cos(angle) * dist, Math.sin(angle) * dist);
+        tries += 1;
+      } while (tries < 20 && shipIntersectsCircle(pos, 9));
+
+      const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+      powerups.push(createPowerup(type, pos));
+    }
+
+    function fireBullet() {
+      const dir = new THREE.Vector2(Math.sin(shipState.angle), Math.cos(shipState.angle));
+      const pos = shipState.pos.clone().addScaledVector(dir, 5.8);
+      const bulletMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.34, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0x8df7ff })
+      );
+      bulletMesh.position.set(pos.x, 1.8, pos.y);
+      scene.add(bulletMesh);
+
+      bullets.push({
+        mesh: bulletMesh,
+        pos,
+        vel: dir.multiplyScalar(BULLET_SPEED),
+        life: BULLET_LIFE
+      });
+    }
+
+    function wrap2(v) {
+      if (v.x > WORLD_HALF) v.x = -WORLD_HALF;
+      if (v.x < -WORLD_HALF) v.x = WORLD_HALF;
+      if (v.y > WORLD_HALF) v.y = -WORLD_HALF;
+      if (v.y < -WORLD_HALF) v.y = WORLD_HALF;
+    }
+
+    function shortestWrapDelta(a, b) {
+      const d = b - a;
+      if (d > WORLD_HALF) return d - WORLD_HALF * 2;
+      if (d < -WORLD_HALF) return d + WORLD_HALF * 2;
+      return d;
+    }
+
+    function pointSegmentDistanceSq(p, a, b) {
+      const ab = b.clone().sub(a);
+      const ap = p.clone().sub(a);
+      const d = ab.lengthSq();
+      if (d < 1e-8) return ap.lengthSq();
+      const t = THREE.MathUtils.clamp(ap.dot(ab) / d, 0, 1);
+      const closest = a.clone().addScaledVector(ab, t);
+      return p.distanceToSquared(closest);
+    }
+
+    function orientation(a, b, c) {
+      return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    }
+
+    function onSegment(a, b, p) {
+      const eps = 1e-7;
+      return (
+        p.x >= Math.min(a.x, b.x) - eps &&
+        p.x <= Math.max(a.x, b.x) + eps &&
+        p.y >= Math.min(a.y, b.y) - eps &&
+        p.y <= Math.max(a.y, b.y) + eps
+      );
+    }
+
+    function segmentsIntersect(a0, a1, b0, b1) {
+      const o1 = orientation(a0, a1, b0);
+      const o2 = orientation(a0, a1, b1);
+      const o3 = orientation(b0, b1, a0);
+      const o4 = orientation(b0, b1, a1);
+
+      if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) return true;
+      if (Math.abs(o1) < 1e-7 && onSegment(a0, a1, b0)) return true;
+      if (Math.abs(o2) < 1e-7 && onSegment(a0, a1, b1)) return true;
+      if (Math.abs(o3) < 1e-7 && onSegment(b0, b1, a0)) return true;
+      if (Math.abs(o4) < 1e-7 && onSegment(b0, b1, a1)) return true;
+      return false;
+    }
+
+    function segmentDistanceSq(a0, a1, b0, b1) {
+      if (segmentsIntersect(a0, a1, b0, b1)) return 0;
+      return Math.min(
+        pointSegmentDistanceSq(a0, b0, b1),
+        pointSegmentDistanceSq(a1, b0, b1),
+        pointSegmentDistanceSq(b0, a0, a1),
+        pointSegmentDistanceSq(b1, a0, a1)
+      );
+    }
+
+    function closestShipDistanceSq(point) {
+      const scale = ship.scale.x;
+      const sin = Math.sin(shipState.angle);
+      const cos = Math.cos(shipState.angle);
+      let minSq = Infinity;
+      for (const sample of shipHitSamples) {
+        const lx = sample.x * scale;
+        const lz = sample.z * scale;
+        const wx = shipState.pos.x + lx * cos + lz * sin;
+        const wy = shipState.pos.y + (-lx * sin + lz * cos);
+        const dx = point.x - wx;
+        const dy = point.y - wy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < minSq) minSq = d2;
+      }
+      return minSq;
+    }
+
+    function missileHitsShip(missile) {
+      const scale = ship.scale.x;
+      const sin = Math.sin(shipState.angle);
+      const cos = Math.cos(shipState.angle);
+      for (const sample of shipHitSamples) {
+        const lx = sample.x * scale;
+        const lz = sample.z * scale;
+        const wx = shipState.pos.x + lx * cos + lz * sin;
+        const wy = shipState.pos.y + (-lx * sin + lz * cos);
+        const dx = missile.pos.x - wx;
+        const dy = missile.pos.y - wy;
+        const r = missile.radius + sample.r * scale;
+        if (dx * dx + dy * dy < r * r) return true;
+      }
+      return false;
+    }
+
+    function shipIntersectsCircle(point, radius) {
+      const scale = ship.scale.x;
+      const sin = Math.sin(shipState.angle);
+      const cos = Math.cos(shipState.angle);
+      for (const sample of shipHitSamples) {
+        const lx = sample.x * scale;
+        const lz = sample.z * scale;
+        const wx = shipState.pos.x + lx * cos + lz * sin;
+        const wy = shipState.pos.y + (-lx * sin + lz * cos);
+        const dx = point.x - wx;
+        const dy = point.y - wy;
+        const r = radius + sample.r * scale;
+        if (dx * dx + dy * dy < r * r) return true;
+      }
+      return false;
+    }
+
+    function updateShip(dt) {
+      const left = keys.has('ArrowLeft') || keys.has('KeyA');
+      const right = keys.has('ArrowRight') || keys.has('KeyD');
+      const isThrusting = keys.has('ArrowUp') || keys.has('KeyW');
+      const boost = keys.has('ShiftLeft') || keys.has('ShiftRight');
+      const overdrive = boostTimer > 0;
+      const turnMult = overdrive ? 1.32 : 1;
+      const thrustMult = overdrive ? 1.35 : 1;
+      const maxSpeedNow = overdrive ? MAX_SPEED * 1.38 : MAX_SPEED;
+
+      if (left) shipState.angle += TURN_SPEED * turnMult * dt;
+      if (right) shipState.angle -= TURN_SPEED * turnMult * dt;
+
+      if (isThrusting) {
+        const p = (boost ? BOOST : 1) * THRUST * thrustMult * dt;
+        shipState.vel.x += Math.sin(shipState.angle) * p;
+        shipState.vel.y += Math.cos(shipState.angle) * p;
+      }
+
+      shipState.vel.multiplyScalar(DRAG);
+      const speed = shipState.vel.length();
+      if (speed > maxSpeedNow) shipState.vel.multiplyScalar(maxSpeedNow / speed);
+      shipState.pos.addScaledVector(shipState.vel, dt);
+
+      if (Math.abs(shipState.pos.x) > WORLD_HALF || Math.abs(shipState.pos.y) > WORLD_HALF) {
+        addExplosion(shipState.pos, 1.5);
+        running = false;
+        return;
+      }
+
+      ship.position.set(shipState.pos.x, 1.2, shipState.pos.y);
+      ship.rotation.y = shipState.angle;
+
+      const flameTarget = isThrusting ? (boost ? 0.95 : overdrive ? 0.8 : 0.65) : (overdrive ? 0.26 : 0.18);
+      shipThruster.material.opacity = THREE.MathUtils.lerp(shipThruster.material.opacity, flameTarget, 0.22);
+      const flameScale = isThrusting ? (boost ? 1.45 : overdrive ? 1.3 : 1.15) : (overdrive ? 1.02 : 0.9);
+      shipThruster.scale.set(1, flameScale + Math.sin(elapsed * 32) * 0.06, 1);
+
+      const shieldTarget = shieldTimer > 0 ? 0.45 : 0;
+      shieldFill.material.opacity = THREE.MathUtils.lerp(shieldFill.material.opacity, shieldTarget * 0.22, 0.2);
+      shieldWire.material.opacity = THREE.MathUtils.lerp(shieldWire.material.opacity, shieldTarget * 0.95, 0.2);
+      const shieldPulse = 1 + Math.sin(elapsed * 8) * 0.04;
+      shipShieldBubble.scale.set(
+        SHIELD_BASE_SCALE * shieldPulse,
+        SHIELD_BASE_SCALE * shieldPulse,
+        SHIELD_BASE_SCALE * shieldPulse
+      );
+      shipShieldBubble.rotation.y += dt * 0.55;
+    }
+
+    function updateMissiles(dt) {
+      for (let i = missiles.length - 1; i >= 0; i -= 1) {
+        const m = missiles[i];
+        m.prev.copy(m.pos);
+        const targetX = shipState.pos.x + shipState.vel.x * m.lead;
+        const targetY = shipState.pos.y + shipState.vel.y * m.lead;
+        const dx = shortestWrapDelta(m.pos.x, targetX);
+        const dy = shortestWrapDelta(m.pos.y, targetY);
+        let targetAngle = Math.atan2(dx, dy);
+        if (m.weaveAmplitude > 0) {
+          m.weave += dt * m.weaveRate;
+          targetAngle += Math.sin(m.weave) * m.weaveAmplitude;
+        }
+        const currentAngle = m.vel.lengthSq() > 0.0001
+          ? Math.atan2(m.vel.x, m.vel.y)
+          : targetAngle;
+        let delta = targetAngle - currentAngle;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+
+        const nextAngle = currentAngle + THREE.MathUtils.clamp(delta, -m.turn * dt, m.turn * dt);
+        let liveSpeed = m.speed;
+        if (m.type === 'interceptor') liveSpeed *= 1.08 + Math.sin(m.pulse * 0.9) * 0.16;
+        if (m.type === 'serpentine') liveSpeed *= 0.97 + Math.sin(m.weave * 0.5) * 0.08;
+        if (m.type === 'proximity') liveSpeed *= 0.95 + Math.sin(m.pulse * 0.35) * 0.05;
+        if (stasisTimer > 0) liveSpeed *= 0.55;
+        m.vel.x = Math.sin(nextAngle) * liveSpeed;
+        m.vel.y = Math.cos(nextAngle) * liveSpeed;
+
+        m.pos.addScaledVector(m.vel, dt);
+        wrap2(m.pos);
+        m.mesh.position.set(m.pos.x, 1.2, m.pos.y);
+        m.mesh.rotation.y = nextAngle;
+        m.mesh.rotation.z += m.roll * dt;
+        m.pulse += dt * m.pulseRate;
+        m.trail.material.opacity = m.trailBase + (0.5 + Math.sin(m.pulse) * 0.5) * m.trailFlicker;
+        const trailScale = Math.max(0.25, m.trailScaleBase + Math.sin(m.pulse) * m.trailScaleAmp);
+        m.trail.scale.set(trailScale, trailScale, 1);
+        if (m.trail2) {
+          const s2 = Math.max(0.2, m.trailScaleBase * 0.84 + Math.cos(m.pulse * 1.2) * m.trailScaleAmp * 0.55);
+          m.trail2.scale.set(s2, s2, 1);
+          m.trail2.material.opacity = m.trail.material.opacity * 0.78;
+        }
+        const glowScale = m.type === 'proximity'
+          ? 0.95 + Math.sin(m.pulse * 0.85) * 0.28
+          : 0.95 + Math.sin(m.pulse * 0.65) * 0.12;
+        m.glow.scale.setScalar(Math.max(0.45, glowScale));
+        m.marker.scale.y = 0.8 + (0.5 + Math.sin(m.pulse * 0.9) * 0.5) * 0.55;
+        m.marker.material.opacity = 0.75 + (0.5 + Math.cos(m.pulse * 0.7) * 0.5) * 0.25;
+        m.marker.material.transparent = true;
+
+        if (m.type === 'proximity') {
+          const d2 = closestShipDistanceSq(m.pos);
+          if (d2 < PROX_WARNING_RADIUS * PROX_WARNING_RADIUS) {
+            const decay = d2 < PROX_TRIGGER_RADIUS * PROX_TRIGGER_RADIUS ? 1.35 : 0.45;
+            m.primeTimer = Math.max(0, m.primeTimer - dt * decay);
+          } else {
+            m.primeTimer = Math.min(PROX_PRIME_TIME, m.primeTimer + dt * 0.7);
+          }
+
+          const primeAmount = THREE.MathUtils.clamp(1 - m.primeTimer / PROX_PRIME_TIME, 0, 1);
+          if (m.warningRing) {
+            const inWindow = d2 < PROX_WARNING_RADIUS * PROX_WARNING_RADIUS;
+            const pulse = 0.45 + 0.55 * Math.sin(m.pulse * 0.45) ** 2;
+            const targetOpacity = inWindow ? (0.1 + primeAmount * 0.7) * pulse : 0;
+            m.warningRing.material.opacity = THREE.MathUtils.lerp(m.warningRing.material.opacity, targetOpacity, 0.25);
+            const ringScale = 1 + primeAmount * 0.14 + Math.sin(m.pulse * 0.35) * 0.03;
+            m.warningRing.scale.set(ringScale, ringScale, 1);
+          }
+
+          if (m.primeTimer <= 0) {
+            addExplosion(m.pos, 1.35);
+            if (shieldTimer > 0) {
+              shieldTimer = 0;
+              destroyed += 1;
+              removeMissile(i);
+              continue;
+            }
+            addExplosion(shipState.pos, 1.45);
+            running = false;
+            return;
+          }
+        }
+
+        m.life += dt;
+      }
+    }
+
+    function updatePowerups(dt) {
+      for (let i = powerups.length - 1; i >= 0; i -= 1) {
+        const p = powerups[i];
+        p.spin += dt * 2.6;
+        p.mesh.rotation.y += dt * 1.8;
+        p.mesh.rotation.z = Math.sin(p.spin * 0.9) * 0.15;
+        p.mesh.position.y = 2.0 + Math.sin(p.spin * 1.8) * 0.25;
+        p.halo.scale.setScalar(0.92 + (0.5 + Math.sin(p.spin * 2.4) * 0.5) * 0.22);
+        p.icon.rotation.y += dt * 2.8;
+
+        if (shipIntersectsCircle(p.pos, POWERUP_RADIUS)) {
+          if (p.type === 'gun') gunTimer = Math.max(gunTimer, GUN_DURATION);
+          if (p.type === 'shield') shieldTimer = Math.max(shieldTimer, SHIELD_DURATION);
+          if (p.type === 'boost') boostTimer = Math.max(boostTimer, BOOST_DURATION);
+          if (p.type === 'stasis') stasisTimer = Math.max(stasisTimer, STASIS_DURATION);
+          addExplosion(p.pos, 0.75);
+          removePowerup(i);
+        }
+      }
+    }
+
+    function updateBullets(dt) {
+      for (let i = bullets.length - 1; i >= 0; i -= 1) {
+        const b = bullets[i];
+        b.life -= dt;
+        b.pos.addScaledVector(b.vel, dt);
+        b.mesh.position.set(b.pos.x, 1.8, b.pos.y);
+        if (
+          b.life <= 0 ||
+          Math.abs(b.pos.x) > WORLD_HALF + 6 ||
+          Math.abs(b.pos.y) > WORLD_HALF + 6
+        ) {
+          removeBullet(i);
+        }
+      }
+    }
+
+    function updatePowerStates(dt) {
+      gunTimer = Math.max(0, gunTimer - dt);
+      shieldTimer = Math.max(0, shieldTimer - dt);
+      boostTimer = Math.max(0, boostTimer - dt);
+      stasisTimer = Math.max(0, stasisTimer - dt);
+      fireCooldown = Math.max(0, fireCooldown - dt);
+
+      if (gunTimer > 0 && fireCooldown <= 0) {
+        fireBullet();
+        fireCooldown = FIRE_INTERVAL;
+      }
+    }
+
+    function checkCollisions() {
+      const missileToRemove = new Set();
+      const bulletToRemove = new Set();
+
+      for (let b = 0; b < bullets.length; b += 1) {
+        const bullet = bullets[b];
+        for (let i = 0; i < missiles.length; i += 1) {
+          if (missileToRemove.has(i)) continue;
+          const m = missiles[i];
+          const dx = shortestWrapDelta(bullet.pos.x, m.pos.x);
+          const dy = shortestWrapDelta(bullet.pos.y, m.pos.y);
+          const r = m.radius * 0.9;
+          if (dx * dx + dy * dy < r * r) {
+            missileToRemove.add(i);
+            bulletToRemove.add(b);
+            addExplosion(m.pos, 0.9);
+            break;
+          }
+        }
+      }
+
+      if (missileToRemove.size > 0) {
+        destroyed += missileToRemove.size;
+        const ids = [...missileToRemove].sort((a, b) => b - a);
+        for (const id of ids) removeMissile(id);
+      }
+      if (bulletToRemove.size > 0) {
+        const ids = [...bulletToRemove].sort((a, b) => b - a);
+        for (const id of ids) removeBullet(id);
+      }
+
+      const toRemove = new Set();
+
+      for (let i = 0; i < missiles.length; i += 1) {
+        const a = missiles[i];
+        for (let j = i + 1; j < missiles.length; j += 1) {
+          const b = missiles[j];
+          const a0 = new THREE.Vector2(0, 0);
+          const a1 = new THREE.Vector2(
+            shortestWrapDelta(a.prev.x, a.pos.x),
+            shortestWrapDelta(a.prev.y, a.pos.y)
+          );
+          const b0 = new THREE.Vector2(
+            shortestWrapDelta(a.prev.x, b.prev.x),
+            shortestWrapDelta(a.prev.y, b.prev.y)
+          );
+          const b1 = b0.clone().add(new THREE.Vector2(
+            shortestWrapDelta(b.prev.x, b.pos.x),
+            shortestWrapDelta(b.prev.y, b.pos.y)
+          ));
+
+          const pairRadius = a.radius + b.radius;
+          if (segmentDistanceSq(a0, a1, b0, b1) < pairRadius * pairRadius) {
+            toRemove.add(i);
+            toRemove.add(j);
+            const mid = new THREE.Vector2(
+              a.pos.x + shortestWrapDelta(a.pos.x, b.pos.x) * 0.5,
+              a.pos.y + shortestWrapDelta(a.pos.y, b.pos.y) * 0.5
+            );
+            wrap2(mid);
+            addExplosion(mid, 1);
+          }
+        }
+      }
+
+      if (toRemove.size > 0) {
+        destroyed += toRemove.size;
+        const ids = [...toRemove].sort((a, b) => b - a);
+        for (const id of ids) removeMissile(id);
+      }
+
+      for (let i = 0; i < missiles.length; i += 1) {
+        const a = missiles[i];
+        if (missileHitsShip(a)) {
+          if (shieldTimer > 0) {
+            shieldTimer = 0;
+            addExplosion(a.pos, 1.1);
+            destroyed += 1;
+            removeMissile(i);
+            i -= 1;
+            continue;
+          }
+          addExplosion(shipState.pos, 1.4);
+          running = false;
+          return;
+        }
+      }
+    }
+
+    function updateExplosions(dt) {
+      for (let i = explosions.length - 1; i >= 0; i -= 1) {
+        const e = explosions[i];
+        e.life -= dt;
+        e.vel.y -= 24 * dt;
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.mesh.material.opacity = Math.max(0, e.life / 1.25);
+        e.mesh.material.transparent = true;
+        if (e.life <= 0) {
+          scene.remove(e.mesh);
+          explosions.splice(i, 1);
+        }
+      }
+    }
+
+    function spawnMissile() {
+      const edge = Math.floor(Math.random() * 4);
+      const p = new THREE.Vector2();
+      const d = WORLD_HALF - 8;
+      if (edge === 0) p.set(-d, (Math.random() * 2 - 1) * d);
+      if (edge === 1) p.set(d, (Math.random() * 2 - 1) * d);
+      if (edge === 2) p.set((Math.random() * 2 - 1) * d, -d);
+      if (edge === 3) p.set((Math.random() * 2 - 1) * d, d);
+      missiles.push(createMissile(p));
+    }
+
+    function resetGame() {
+      for (const m of missiles) scene.remove(m.mesh);
+      missiles.length = 0;
+      for (const e of explosions) scene.remove(e.mesh);
+      explosions.length = 0;
+      for (const p of powerups) scene.remove(p.mesh);
+      powerups.length = 0;
+      for (const b of bullets) scene.remove(b.mesh);
+      bullets.length = 0;
+
+      shipState.pos.set(0, 0);
+      shipState.vel.set(0, 0);
+      shipState.angle = 0;
+      ship.position.set(0, 1.2, 0);
+      ship.rotation.set(0, 0, 0);
+      shieldFill.material.opacity = 0;
+      shieldWire.material.opacity = 0;
+      shipShieldBubble.scale.set(SHIELD_BASE_SCALE, SHIELD_BASE_SCALE, SHIELD_BASE_SCALE);
+      shipShieldBubble.rotation.set(0, 0, 0);
+
+      elapsed = 0;
+      destroyed = 0;
+      lastSpawn = 0;
+      powerupTimer = 5.5;
+      gunTimer = 0;
+      shieldTimer = 0;
+      boostTimer = 0;
+      stasisTimer = 0;
+      fireCooldown = 0;
+      running = true;
+      spawnMissile();
+      overlay.classList.remove('show');
+    }
+
+    function endGame() {
+      finalTime.textContent = `${elapsed.toFixed(1)}s`;
+      finalDestroyed.textContent = String(destroyed);
+      overlay.classList.add('show');
+    }
+
+    function startGameFromIntro() {
+      if (!intro.classList.contains('show')) return;
+      previewLaunching = false;
+      previewLaunchTimer = 0;
+      previewDragging = false;
+      intro.classList.remove('show');
+      intro.classList.remove('launching');
+      document.body.classList.remove('intro-active');
+      applyPreviewShowcasePose();
+      previewPitch = 0.24;
+      previewYaw = -0.62;
+      resetGame();
+    }
+
+    startGameButton.addEventListener('click', startGameFromIntro);
+    restartButton.addEventListener('click', resetGame);
+    const controlCodes = new Set(['ArrowUp', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyD', 'ShiftLeft', 'ShiftRight']);
+    window.addEventListener('keydown', (e) => {
+      if (controlCodes.has(e.code)) e.preventDefault();
+      keys.add(e.code);
+    });
+    window.addEventListener('keyup', (e) => keys.delete(e.code));
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      resizePreview();
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.033, clock.getDelta());
+
+      if (running) {
+        elapsed += dt;
+        lastSpawn += dt;
+        powerupTimer -= dt;
+        if (lastSpawn >= SPAWN_INTERVAL && missiles.length < MAX_MISSILES) {
+          spawnMissile();
+          lastSpawn = 0;
+        }
+        if (powerupTimer <= 0) {
+          spawnPowerup();
+          powerupTimer = randomPowerupDelay();
+        }
+
+        updatePowerStates(dt);
+        updateShip(dt);
+        if (running) {
+          updateMissiles(dt);
+          updateBullets(dt);
+          updatePowerups(dt);
+          checkCollisions();
+        }
+        if (!running) endGame();
+      }
+
+      updateExplosions(dt);
+      timeEl.textContent = elapsed.toFixed(1);
+      aliveEl.textContent = String(missiles.length);
+      destroyedEl.textContent = String(destroyed);
+      gunEl.textContent = gunTimer > 0 ? `${gunTimer.toFixed(1)}s` : 'OFF';
+      shieldEl.textContent = shieldTimer > 0 ? `${shieldTimer.toFixed(1)}s` : 'OFF';
+      boostEl.textContent = boostTimer > 0 ? `${boostTimer.toFixed(1)}s` : 'OFF';
+      stasisEl.textContent = stasisTimer > 0 ? `${stasisTimer.toFixed(1)}s` : 'OFF';
+
+      const follow = new THREE.Vector3(ship.position.x * 0.25, 118, ship.position.z * 0.25 + 128);
+      camera.position.lerp(follow, 0.04);
+      camera.lookAt(ship.position.x, 0, ship.position.z);
+
+      renderer.render(scene, camera);
+      if (intro.classList.contains('show')) {
+        if (previewLaunching) {
+          previewLaunchTimer += dt;
+          const t = Math.min(1, previewLaunchTimer / PREVIEW_LAUNCH_DURATION);
+          const inCutoff = 0.2;
+          const inPhase = THREE.MathUtils.clamp(t / inCutoff, 0, 1);
+          const outPhase = THREE.MathUtils.clamp((t - inCutoff) / (1 - inCutoff), 0, 1);
+          const easeOut = outPhase * outPhase * (3 - 2 * outPhase);
+          const k = t < inCutoff ? inPhase * inPhase : easeOut;
+          const arc = Math.sin(k * Math.PI);
+          const camZ = t < inCutoff
+            ? THREE.MathUtils.lerp(previewShowcaseCamZ, previewShowcaseCamZ - 2.6, inPhase * inPhase)
+            : THREE.MathUtils.lerp(previewShowcaseCamZ - 2.6, 74, easeOut);
+          const camY = t < inCutoff
+            ? THREE.MathUtils.lerp(previewShowcaseCamY, previewShowcaseCamY + 0.8, inPhase)
+            : THREE.MathUtils.lerp(previewShowcaseCamY + 0.8, 14.2, easeOut);
+          previewPitch = THREE.MathUtils.lerp(previewPitch, 0.02, 0.07);
+          previewYaw = THREE.MathUtils.lerp(previewYaw, 0.08, 0.065);
+          previewShip.position.set(
+            THREE.MathUtils.lerp(previewShowcaseX, 0, k),
+            THREE.MathUtils.lerp(previewShowcaseY, 1.18, k) + arc * 0.24,
+            0
+          );
+          previewShip.scale.setScalar(THREE.MathUtils.lerp(previewShowcaseScale, 0.54, k));
+          previewCamera.position.set(0, camY, camZ);
+          previewCamera.lookAt(0, 1.18, 0);
+
+          if (t >= 1) {
+            previewLaunching = false;
+            intro.classList.remove('show');
+            intro.classList.remove('launching');
+            document.body.classList.remove('intro-active');
+            applyPreviewShowcasePose();
+            previewPitch = 0.24;
+            previewYaw = -0.62;
+            resetGame();
+          }
+        } else if (!previewDragging) {
+          previewYaw += dt * 0.18;
+          applyPreviewShowcasePose();
+        }
+        previewShip.rotation.set(previewPitch, previewYaw, 0);
+        previewRenderer.render(previewScene, previewCamera);
+      }
+    }
+
+    animate();
+  </script>
+</body>
+</html>

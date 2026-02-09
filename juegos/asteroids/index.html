@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asteroids - Three.js</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="hud">
+      <div id="score">Score: 0</div>
+      <div id="lives">Lives: 3</div>
+      <div id="help">Arrows/WASD to move, Space to shoot, P to pause</div>
+    </div>
+    <div id="overlay" class="hidden" data-state="home">
+      <div class="overlay-panel">
+        <div class="overlay-hero">
+          <div class="eyebrow">Nebula Drift Protocol</div>
+          <h1 class="title">Asteroids</h1>
+          <p class="subtitle">Pilot the drift, break the swarm, and chain the burst for maximum score.</p>
+          <ul class="controls">
+            <li><span>Move</span><strong>WASD / Arrows</strong></li>
+            <li><span>Thrust</span><strong>W / Up</strong></li>
+            <li><span>Fire</span><strong>Space</strong></li>
+            <li><span>Pause</span><strong>P</strong></li>
+          </ul>
+        </div>
+        <div id="overlay-text"></div>
+        <button id="overlay-button">Start</button>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
