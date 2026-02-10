@@ -1,5 +1,5 @@
 {
-  "name": "game-dev",
+  "name": "games",
   "main": "game-dev-worker.js",
   "compatibility_date": "2026-02-10",
   "assets": {
