@@ -91,7 +91,7 @@ h3,
 }
 
 .hero-section {
-  padding: 5rem 0 3rem;
+  padding: 3.2rem 0 3rem;
 }
 
 .eyebrow {
@@ -184,6 +184,51 @@ h3,
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 1.1rem 0;
   color: rgba(255, 255, 255, 0.9);
+}
+
+#contactoModal .modal-content {
+  background: linear-gradient(165deg, #1b1216, #0f0b0d);
+  border: 1px solid rgba(220, 20, 60, 0.55);
+  color: #f8f3ee;
+}
+
+#contactoModal .modal-header,
+#contactoModal .modal-footer {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+#contactoModal .modal-title {
+  color: #ffd5dd;
+}
+
+#contactoModal .btn-close {
+  filter: invert(1) grayscale(1) brightness(1.8);
+}
+
+#contactoModal .form-label {
+  color: #f8f3ee;
+  font-weight: 600;
+}
+
+#contactoModal .form-control {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+#contactoModal .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+#contactoModal .form-control:focus {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(220, 20, 60, 0.86);
+  box-shadow: 0 0 0 0.2rem rgba(220, 20, 60, 0.25);
+}
+
+#contactFormStatus {
+  color: rgba(255, 255, 255, 0.72) !important;
 }
 
 .game-page main {

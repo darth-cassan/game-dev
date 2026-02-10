@@ -45,6 +45,7 @@
             <li class="nav-item"><a class="nav-link" href="#que-es">¿Qué es?</a></li>
             <li class="nav-item"><a class="nav-link" href="#como-funciona">Cómo funciona</a></li>
             <li class="nav-item"><a class="nav-link" href="#threejs">three.js</a></li>
+            <li class="nav-item"><a class="nav-link" href="#contacto">Contacto</a></li>
             <li class="nav-item ms-lg-3">
               <a class="btn btn-crimson" href="#juegos">Probar demos</a>
             </li>
@@ -217,7 +218,62 @@
           </div>
         </div>
       </section>
+
+      <section class="section-block" id="contacto">
+        <div class="container">
+          <div class="row justify-content-center">
+            <div class="col-lg-8">
+              <div class="stack-card text-center">
+                <p class="eyebrow mb-2">¿Hablamos?</p>
+                <h2 class="mb-3">Contacta con nosotros</h2>
+                <p class="mb-4">
+                  Si quieres colaborar o tienes dudas sobre el proyecto, escríbenos y te responderemos lo antes posible.
+                </p>
+                <button
+                  class="btn btn-crimson btn-lg"
+                  type="button"
+                  data-bs-toggle="modal"
+                  data-bs-target="#contactoModal"
+                >
+                  Abrir formulario
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+
+    <div class="modal fade" id="contactoModal" tabindex="-1" aria-labelledby="contactoModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title fs-4" id="contactoModalLabel">Contacta con nosotros</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="contactModalForm">
+              <div class="mb-3">
+                <label class="form-label" for="contactName">Nombre</label>
+                <input class="form-control" id="contactName" name="name" type="text" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="contactEmail">Correo electrónico</label>
+                <input class="form-control" id="contactEmail" name="email" type="email" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="contactMessage">Mensaje</label>
+                <textarea class="form-control" id="contactMessage" name="message" rows="4" required></textarea>
+              </div>
+              <button class="btn btn-crimson w-100" type="submit">Enviar</button>
+              <p class="small text-muted mt-2 mb-0" id="contactFormStatus">
+                Se abrirá tu app de correo para enviar el mensaje a games@darthcassan.com.
+              </p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <footer class="site-footer">
       <div class="container d-flex flex-column flex-md-row justify-content-between gap-2">

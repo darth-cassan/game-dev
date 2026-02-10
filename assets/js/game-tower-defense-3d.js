@@ -17,15 +17,17 @@
   const GRID_COLS = 12;
   const GRID_ROWS = 8;
   const TILE = 2;
+  const ECONOMY_MULT = 0.7;
 
   const state = {
     lives: 20,
-    money: 132,
+    money: Math.round(132 * ECONOMY_MULT),
     wave: 0,
     waveActive: false,
     buildMode: null,
     spawning: false,
     enemiesToSpawn: 0,
+    spawnQueue: [],
     spawnTimer: 0,
     autoNextWaveAt: 0,
     gameOver: false,
@@ -145,6 +147,172 @@
   const bullets = [];
   const occupied = new Set();
 
+  const enemyArchetypes = {
+    runner: {
+      label: "Corredor",
+      baseHp: 22,
+      hpScale: 0.075,
+      baseSpeed: 1.9,
+      speedScale: 0.045,
+      rewardBase: 6,
+      rewardScale: 0.65,
+      damage: 1,
+      hitRadius: 0.38,
+      spinSpeed: 3.4,
+      bobAmp: 0.05,
+      spawnCadence: 0.38,
+      isBoss: false,
+    },
+    soldier: {
+      label: "Soldado",
+      baseHp: 36,
+      hpScale: 0.1,
+      baseSpeed: 1.28,
+      speedScale: 0.04,
+      rewardBase: 8,
+      rewardScale: 0.95,
+      damage: 1,
+      hitRadius: 0.5,
+      spinSpeed: 2.1,
+      bobAmp: 0.04,
+      spawnCadence: 0.62,
+      isBoss: false,
+    },
+    crusher: {
+      label: "Triturador",
+      baseHp: 72,
+      hpScale: 0.125,
+      baseSpeed: 0.86,
+      speedScale: 0.03,
+      rewardBase: 12,
+      rewardScale: 1.2,
+      damage: 2,
+      hitRadius: 0.72,
+      spinSpeed: 1.25,
+      bobAmp: 0.025,
+      spawnCadence: 0.88,
+      isBoss: false,
+    },
+    miniBoss: {
+      label: "Coloso",
+      baseHp: 290,
+      hpScale: 0.16,
+      baseSpeed: 0.76,
+      speedScale: 0.018,
+      rewardBase: 58,
+      rewardScale: 3.8,
+      damage: 4,
+      hitRadius: 1.15,
+      spinSpeed: 0.65,
+      bobAmp: 0.06,
+      spawnCadence: 1.75,
+      isBoss: true,
+    },
+  };
+
+  function createEnemyMesh(typeId) {
+    if (typeId === "runner") {
+      const group = new THREE.Group();
+      const core = new THREE.Mesh(
+        new THREE.ConeGeometry(0.35, 1.05, 6),
+        new THREE.MeshStandardMaterial({ color: 0x71f6ff, emissive: 0x0c2a30, roughness: 0.35 })
+      );
+      core.rotation.x = Math.PI / 2;
+      core.position.y = 0.48;
+      group.add(core);
+
+      const finLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.16, 0.65),
+        new THREE.MeshStandardMaterial({ color: 0xb9fcff, roughness: 0.4 })
+      );
+      finLeft.position.set(-0.26, 0.43, 0.05);
+      group.add(finLeft);
+
+      const finRight = finLeft.clone();
+      finRight.position.x = 0.26;
+      group.add(finRight);
+      return group;
+    }
+
+    if (typeId === "crusher") {
+      const group = new THREE.Group();
+      const base = new THREE.Mesh(
+        new THREE.BoxGeometry(1.08, 0.8, 1.08),
+        new THREE.MeshStandardMaterial({ color: 0xff7a8f, emissive: 0x2f0d17, roughness: 0.5 })
+      );
+      base.position.y = 0.45;
+      group.add(base);
+
+      const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.44, 0.55, 0.55, 8),
+        new THREE.MeshStandardMaterial({ color: 0xffc8d1, roughness: 0.35, metalness: 0.18 })
+      );
+      cap.position.y = 0.98;
+      group.add(cap);
+
+      const plateA = new THREE.Mesh(
+        new THREE.BoxGeometry(1.22, 0.12, 0.25),
+        new THREE.MeshStandardMaterial({ color: 0x4a1d28, roughness: 0.55 })
+      );
+      plateA.position.y = 0.73;
+      group.add(plateA);
+
+      const plateB = plateA.clone();
+      plateB.rotation.y = Math.PI / 2;
+      group.add(plateB);
+      return group;
+    }
+
+    if (typeId === "miniBoss") {
+      const group = new THREE.Group();
+      const core = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(1.02, 0),
+        new THREE.MeshStandardMaterial({ color: 0xff5a7a, emissive: 0x471220, roughness: 0.32, metalness: 0.16 })
+      );
+      core.position.y = 1.02;
+      group.add(core);
+
+      const shell = new THREE.Mesh(
+        new THREE.TorusGeometry(1.3, 0.1, 12, 32),
+        new THREE.MeshStandardMaterial({ color: 0xffd8df, roughness: 0.28, metalness: 0.25 })
+      );
+      shell.position.y = 1.02;
+      shell.rotation.x = Math.PI / 2;
+      group.add(shell);
+
+      for (let i = 0; i < 4; i += 1) {
+        const spike = new THREE.Mesh(
+          new THREE.ConeGeometry(0.2, 0.58, 8),
+          new THREE.MeshStandardMaterial({ color: 0xfff1f4, roughness: 0.22 })
+        );
+        const angle = (i / 4) * Math.PI * 2;
+        spike.position.set(Math.cos(angle) * 0.95, 1.02, Math.sin(angle) * 0.95);
+        spike.rotation.z = -Math.PI / 2;
+        spike.rotation.y = angle;
+        group.add(spike);
+      }
+
+      return group;
+    }
+
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.52, 0),
+      new THREE.MeshStandardMaterial({ color: 0xffb3c4, emissive: 0x2a0d15, roughness: 0.35 })
+    );
+    body.position.y = 0.55;
+    group.add(body);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.45, 0.07, 10, 20),
+      new THREE.MeshStandardMaterial({ color: 0xffdee5, roughness: 0.22, metalness: 0.2 })
+    );
+    ring.position.y = 0.55;
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+    return group;
+  }
+
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -261,24 +429,82 @@
     setHint(`${type.label} construida.`);
   }
 
-  function spawnEnemy() {
-    const waveScale = 1 + state.wave * 0.112;
-    const mesh = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.5 + Math.min(0.4, state.wave * 0.04), 0),
-      new THREE.MeshStandardMaterial({ color: 0xffb3c4, emissive: 0x2a0d15, roughness: 0.35 })
-    );
+  function buildWaveQueue(wave) {
+    const queue = [];
+    const total = 5 + wave * 2;
+    const runnerWeight = Math.min(0.46, 0.2 + wave * 0.018);
+    const crusherWeight = Math.min(0.34, 0.08 + wave * 0.014);
+    const soldierWeight = Math.max(0.2, 1 - runnerWeight - crusherWeight);
+
+    for (let i = 0; i < total; i += 1) {
+      const roll = Math.random();
+      if (roll < runnerWeight) {
+        queue.push("runner");
+      } else if (roll < runnerWeight + soldierWeight) {
+        queue.push("soldier");
+      } else {
+        queue.push("crusher");
+      }
+    }
+
+    if (wave >= 4 && !queue.includes("crusher")) {
+      queue[Math.floor(Math.random() * queue.length)] = "crusher";
+    }
+
+    if (wave % 5 === 0) {
+      queue.splice(Math.floor(queue.length * 0.72), 0, "miniBoss");
+    }
+
+    return queue;
+  }
+
+  function getSpawnCadence(typeId) {
+    const type = enemyArchetypes[typeId] || enemyArchetypes.soldier;
+    const waveFactor = Math.max(0.72, 1 - state.wave * 0.01);
+    return type.spawnCadence * waveFactor;
+  }
+
+  function canSpawnWithSpacing(typeId) {
+    const type = enemyArchetypes[typeId] || enemyArchetypes.soldier;
     const spawnPos = pathWaypoints[0];
-    mesh.position.set(spawnPos.x, 0.5, spawnPos.z);
+    const minGap = type.isBoss ? 3.3 : 2.15;
+
+    for (let i = 0; i < enemies.length; i += 1) {
+      const enemy = enemies[i];
+      if (enemy.mesh.position.distanceTo(spawnPos) < minGap) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function spawnEnemy(typeId) {
+    const type = enemyArchetypes[typeId] || enemyArchetypes.soldier;
+    const waveScale = 1 + state.wave * type.hpScale;
+    const mesh = createEnemyMesh(typeId);
+    const spawnPos = pathWaypoints[0];
+    const baseY = type.isBoss ? 0.25 : 0;
+    mesh.position.set(spawnPos.x, baseY, spawnPos.z);
     scene.add(mesh);
 
     enemies.push({
       mesh,
-      hp: 34 * waveScale,
-      maxHp: 34 * waveScale,
-      speed: 1.08 + state.wave * 0.056,
+      typeId,
+      hp: type.baseHp * waveScale,
+      maxHp: type.baseHp * waveScale,
+      speed: type.baseSpeed + state.wave * type.speedScale,
       waypointIndex: 1,
-      reward: 7 + Math.floor(state.wave),
-      damage: state.wave >= 11 ? 2 : 1,
+      reward: Math.max(
+        1,
+        Math.round((type.rewardBase + Math.floor(state.wave * type.rewardScale)) * ECONOMY_MULT)
+      ),
+      damage: type.isBoss ? Math.max(type.damage, 5) : type.damage,
+      hitRadius: type.hitRadius,
+      spinSpeed: type.spinSpeed,
+      bobAmp: type.bobAmp,
+      bobPhase: Math.random() * Math.PI * 2,
+      baseY,
+      isBoss: type.isBoss,
     });
   }
 
@@ -292,11 +518,16 @@
     state.autoNextWaveAt = 0;
     state.wave += 1;
     state.waveActive = true;
-    state.enemiesToSpawn = 5 + state.wave * 2;
+    state.spawnQueue = buildWaveQueue(state.wave);
+    state.enemiesToSpawn = state.spawnQueue.length;
     state.spawnTimer = 0.15;
     state.spawning = true;
     overlay.hidden = true;
-    setHint(`Oleada ${state.wave} iniciada.`);
+    if (state.spawnQueue.includes("miniBoss")) {
+      setHint(`Oleada ${state.wave} iniciada. Mini-boss detectado.`);
+    } else {
+      setHint(`Oleada ${state.wave} iniciada.`);
+    }
     updateHUD();
   }
 
@@ -347,6 +578,7 @@
     state.gameOver = true;
     state.spawning = false;
     state.enemiesToSpawn = 0;
+    state.spawnQueue = [];
     overlay.hidden = false;
     overlayTitle.textContent = "Defensa caída";
     overlayText.textContent = "El núcleo fue superado. Recarga la página para jugar de nuevo.";
@@ -362,7 +594,7 @@
       !state.gameOver &&
       state.wave > 0
     ) {
-      state.money += 15 + state.wave * 2;
+      state.money += Math.max(1, Math.round((15 + state.wave * 2) * ECONOMY_MULT));
       state.waveActive = false;
       state.autoNextWaveAt = performance.now() + 3000;
       setHint(`Oleada ${state.wave} completada. Siguiente oleada automática en 3s.`);
@@ -453,20 +685,30 @@
 
       if (state.spawning) {
         state.spawnTimer -= dt;
-        if (state.spawnTimer <= 0 && state.enemiesToSpawn > 0) {
-          spawnEnemy();
-          state.enemiesToSpawn -= 1;
-          state.spawnTimer = Math.max(0.36, 0.68 - state.wave * 0.02);
+        if (state.spawnTimer <= 0 && state.spawnQueue.length > 0) {
+          const nextType = state.spawnQueue[0];
+          if (canSpawnWithSpacing(nextType)) {
+            state.spawnQueue.shift();
+            spawnEnemy(nextType);
+            state.enemiesToSpawn = state.spawnQueue.length;
+            const upcoming = state.spawnQueue[0] || "soldier";
+            state.spawnTimer = getSpawnCadence(upcoming);
+          } else {
+            state.spawnTimer = 0.14;
+          }
         }
 
-        if (state.enemiesToSpawn <= 0) {
+        if (state.spawnQueue.length <= 0) {
           state.spawning = false;
         }
       }
 
       for (let i = enemies.length - 1; i >= 0; i -= 1) {
         const enemy = enemies[i];
-        enemy.mesh.rotation.y += dt * 1.8;
+        enemy.mesh.rotation.y += dt * enemy.spinSpeed;
+        if (enemy.isBoss && enemy.mesh.children[1]) {
+          enemy.mesh.children[1].rotation.z += dt * 1.8;
+        }
 
         const wp = pathWaypoints[Math.min(enemy.waypointIndex, pathWaypoints.length - 1)];
         const direction = wp.clone().sub(enemy.mesh.position);
@@ -490,6 +732,8 @@
           direction.normalize();
           enemy.mesh.position.addScaledVector(direction, enemy.speed * dt);
         }
+
+        enemy.mesh.position.y = enemy.baseY + Math.sin(performance.now() * 0.002 + enemy.bobPhase) * enemy.bobAmp;
       }
 
       for (let i = towers.length - 1; i >= 0; i -= 1) {
@@ -521,7 +765,7 @@
         let hit = false;
         for (let j = enemies.length - 1; j >= 0; j -= 1) {
           const enemy = enemies[j];
-          if (bullet.mesh.position.distanceTo(enemy.mesh.position) < 0.52) {
+          if (bullet.mesh.position.distanceTo(enemy.mesh.position) < enemy.hitRadius + 0.2) {
             enemy.hp -= bullet.damage;
             scene.remove(bullet.mesh);
             bullets.splice(i, 1);
