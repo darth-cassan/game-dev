@@ -61,14 +61,8 @@ export default {
 
   async email(message, env) {
     const replyFrom = env.REPLY_FROM || "games@darthcassan.com";
-    const forwardTo = env.FORWARD_TO || "";
-    
-    // Optional forwarding if FORWARD_TO is configured.
-    if (forwardTo) {
-      await message.forward(forwardTo);
-    }
 
-    // Auto-reply (or drop).
+    // No forwarding: only auto-reply (or drop).
     if (shouldSkipAutoReply(message, replyFrom)) {
       return;
     }
